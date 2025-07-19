@@ -10,14 +10,11 @@ if (url.includes('device-api.xchanger.cn/remote-control/vehicle/status/')) {
   const auth3 = headers['AUTHORIZATION'];
   
   console.log("🔍 Authorization检查:");
-  console.log("- Authorization:", auth1 || "未找到");
-  console.log("- authorization:", auth2 || "未找到");
-  console.log("- AUTHORIZATION:", auth3 || "未找到");
   
   const authorization = auth1 || auth2 || auth3;
   
   if (authorization) {
-      console.log("🎉 找到Authorization:", authorization);
+      console.log("🎉 找到Authorization: " + authorization);
       
       // 修改通知以显示完整令牌
       $notification.post(
@@ -28,7 +25,7 @@ if (url.includes('device-api.xchanger.cn/remote-control/vehicle/status/')) {
       console.log("🔔 通知已发送");
   } else {
       console.log("❌ 未找到任何Authorization字段");
-      console.log("📋 可用的Headers键:", Object.keys(headers));
+      console.log("📋 可用的Headers键: " + Object.keys(headers));
   }
 }
 
