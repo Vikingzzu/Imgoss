@@ -1,29 +1,41 @@
 // 存储 token 到远程服务
-const storeToken = async (token, apiKey) => {
-  try {
-    const response = await fetch('https://jy-token.vikingzzu.workers.dev/api/store-token', {
-      method: 'POST',
+const storeToken = (token, apiKey) => {
+  return new Promise((resolve, reject) => {
+    const requestConfig = {
+      url: 'https://jy-token.vikingzzu.workers.dev/api/store-token',
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': apiKey
       },
-      body: JSON.stringify({ token })
+      body: JSON.stringify({ token }),
+      timeout: 10,
+      insecure: false,
+      'auto-redirect': true
+    };
+
+    $httpClient.post(requestConfig, (error, response, data) => {
+      if (error) {
+        console.error('🚫 网络请求失败:', error);
+        reject(new Error(`网络请求失败: ${error}`));
+      } else {
+        try {
+          const result = JSON.parse(data);
+          console.log("📤 上报结果:", JSON.stringify(result, null, 2));
+          
+          if (result.success) {
+            console.log('✅ Token上报成功:', result.message);
+            resolve(result.data);
+          } else {
+            console.error('❌ Token上报失败:', result.message);
+            reject(new Error(result.message));
+          }
+        } catch (parseError) {
+          console.error('📋 响应解析失败:', parseError);
+          reject(new Error('响应解析失败'));
+        }
+      }
     });
-    
-    const result = await response.json();
-    console.log("📤 上报结果:", JSON.stringify(result, null, 2));
-    
-    if (result.success) {
-      console.log('✅ Token上报成功:', result.message);
-      return result.data;
-    } else {
-      console.error('❌ Token上报失败:', result.message);
-      throw new Error(result.message);
-    }
-  } catch (error) {
-    console.error('🚫 上报请求失败:', error.message);
-    throw error;
-  }
+  });
 };
 
 // 几何汽车 Token 抓取脚本（添加上报功能）
