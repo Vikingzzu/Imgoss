@@ -19,19 +19,13 @@ if (url.includes('device-api.xchanger.cn/remote-control/vehicle/status/')) {
   if (authorization) {
       console.log("🎉 找到Authorization:", authorization);
       
-      try {
-          $pasteboard.write(authorization);
-          console.log("📋 已写入剪贴板");
-          
-          $notification.post(
-              "几何汽车Token", 
-              "Authorization已抓取", 
-              authorization.substring(0, 30) + "..."
-          );
-          console.log("🔔 通知已发送");
-      } catch (e) {
-          console.log("❌ 操作失败:", e.toString());
-      }
+      // 修改通知以显示完整令牌
+      $notification.post(
+          "几何汽车Token", 
+          "Authorization已抓取", 
+          authorization
+      );
+      console.log("🔔 通知已发送");
   } else {
       console.log("❌ 未找到任何Authorization字段");
       console.log("📋 可用的Headers键:", Object.keys(headers));
