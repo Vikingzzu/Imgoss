@@ -20,7 +20,7 @@ if (url.includes('device-api.xchanger.cn/remote-control/vehicle/status/')) {
       $notification.post(
           "几何汽车Token", 
           "Authorization已抓取", 
-          authorization
+          "21231"
       );
       console.log("🔔 通知已发送");
   } else {
