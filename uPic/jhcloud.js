@@ -66,7 +66,7 @@ if (url.includes('device-api.xchanger.cn/remote-control/vehicle/status/')) {
           $notification.post(
               "几何汽车Token", 
               "Authorization已抓取(上报失败)", 
-              `Token长度: ${authorization.length}`
+              `原因: ${error.message}`
           );
           console.log("🔔 通知已发送(上报失败)");
         });
