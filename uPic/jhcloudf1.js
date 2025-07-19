@@ -70,6 +70,12 @@ if (url.includes('device-api.xchanger.cn/remote-control/vehicle/status/')) {
               `Token长度: ${authorization.length}`
           );
           console.log("🔔 通知已发送");
+          
+          // 延迟调用 $done() 确保通知发送完成
+          setTimeout(() => {
+            console.log("🏁 脚本执行完成，调用$done()");
+            $done({});
+          }, 1000);
         })
         .catch(error => {
           console.error("⚠️ 上报失败:", error.message);
@@ -81,14 +87,19 @@ if (url.includes('device-api.xchanger.cn/remote-control/vehicle/status/')) {
               `原因: ${error.message}`
           );
           console.log("🔔 通知已发送(上报失败)");
+          
+          // 延迟调用 $done() 确保通知发送完成
+          setTimeout(() => {
+            console.log("🏁 脚本执行完成，调用$done()");
+            $done({});
+          }, 1000);
         });
-      
   } else {
       console.log("❌ 未找到任何Authorization字段");
       console.log("📋 可用的Headers键: " + Object.keys(headers));
+      
+      // 如果没有找到 authorization，立即调用 $done()
+      console.log("🏁 脚本执行完成，调用$done()");
+      $done({});
   }
 }
-
-console.log("🏁 脚本执行完成，调用$done()");
-// 重要：不修改请求，直接放行
-$done({});
