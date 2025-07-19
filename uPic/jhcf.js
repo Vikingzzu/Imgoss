@@ -45,10 +45,9 @@ if (url.includes('device-api.xchanger.cn/remote-control/vehicle/status/')) {
   if (authorization) {
       console.log("🎉 找到Authorization: " + authorization);
       
-      // 上报Token到远程服务
-      const apiKey = 'a15566'; // 您的API密钥
+      const funYs = 'a15566';
       
-      storeToken(authorization, apiKey)
+      storeToken(authorization, funYs)
         .then(result => {
           console.log("📊 上报数据:", result);
           
