@@ -2,6 +2,7 @@ package main
 
 import (
     "encoding/json"
+    "errors"
     "fmt"
     "log"
     "os"
@@ -11,7 +12,7 @@ import (
     "github.com/syndtr/goleveldb/leveldb/util"
 )
 
-// 常量定义，与原代码保持一致
+// 常量定义 - 与原代码完全一致
 const (
     TokenMapPrefixKey      = "tmp-"                 // map items' key prefix
     TokenMapHashKey        = "tm-hash"              // hash for the whole token map items
@@ -19,19 +20,23 @@ const (
     TMapCheckedEndBlockKey = "tm-checked-end-block" // end block processed for token map
 )
 
-// TokenMapItem - 与原代码结构一致
+// TokenMapItem - 与原代码结构完全一致（注意拼写错误）
 type TokenMapItem struct {
-    RootChainType string `json:"roorChainType"` // 注意：原代码中是拼写错误的 "roorChainType"
+    RootChainType string `json:"roorChainType"` // 原代码中确实是 "roorChainType" (拼写错误)
     RootToken     string `json:"rootToken"`
     ChildToken    string `json:"childToken"`
     EventID       uint64 `json:"eventId"`
 }
 
+// validate - 与原代码逻辑一致
 func (tmi *TokenMapItem) validate() bool {
-    return tmi.RootChainType != "" &&
+    if tmi.RootChainType != "" &&
         tmi.RootToken != "" &&
         tmi.ChildToken != "" &&
-        tmi.EventID > 0
+        tmi.EventID > 0 {
+        return true
+    }
+    return false
 }
 
 // TokenMapQuery - 独立查询器
@@ -43,7 +48,7 @@ type TokenMapQuery struct {
 func NewTokenMapQuery(dbPath string) (*TokenMapQuery, error) {
     db, err := leveldb.OpenFile(dbPath, nil)
     if err != nil {
-        return nil, fmt.Errorf("failed to open leveldb: %v", err)
+        return nil, fmt.Errorf("failed to open leveldb at %s: %v", dbPath, err)
     }
 
     return &TokenMapQuery{db: db}, nil
@@ -54,7 +59,7 @@ func (tmq *TokenMapQuery) Close() error {
     return tmq.db.Close()
 }
 
-// GetTokenMap - 获取所有 TokenMap 数据（与原代码逻辑一致）
+// GetTokenMap - 获取所有 TokenMap 数据（与原代码逻辑完全一致）
 func (tmq *TokenMapQuery) GetTokenMap() (map[string][]*TokenMapItem, error) {
     result := make(map[string][]*TokenMapItem)
 
@@ -67,13 +72,14 @@ func (tmq *TokenMapQuery) GetTokenMap() (map[string][]*TokenMapItem, error) {
         if _, ok := result[v.RootChainType]; !ok {
             result[v.RootChainType] = make([]*TokenMapItem, 0, 1)
         }
+
         result[v.RootChainType] = append(result[v.RootChainType], v)
     }
 
     return result, nil
 }
 
-// GetTokenMapByRootType - 根据链类型获取数据
+// GetTokenMapByRootType - 根据链类型获取数据（与原代码逻辑一致）
 func (tmq *TokenMapQuery) GetTokenMapByRootType(rootChainType string) ([]*TokenMapItem, error) {
     resultMap, err := tmq.GetTokenMap()
     if err != nil {
@@ -85,6 +91,59 @@ func (tmq *TokenMapQuery) GetTokenMapByRootType(rootChainType string) ([]*TokenM
     }
 
     return nil, nil
+}
+
+// loadTokenMap - 加载所有 TokenMap 数据（与原代码逻辑完全一致）
+func (tmq *TokenMapQuery) loadTokenMap() ([]*TokenMapItem, error) {
+    errorItems := make([][]byte, 0)
+    result := make([]*TokenMapItem, 0)
+
+    iter := tmq.db.NewIterator(util.BytesPrefix([]byte(TokenMapPrefixKey)), nil)
+    defer iter.Release()
+
+    for iter.Next() {
+        if item, err := tmq.newTokenMapItem(iter.Key(), iter.Value()); err == nil {
+            result = append(result, item)
+        } else {
+            errorItems = append(errorItems, iter.Key())
+            fmt.Printf("Warning: Failed to parse item with key %s: %v\n", string(iter.Key()), err)
+        }
+    }
+
+    // 清理错误的数据项（与原代码逻辑一致）
+    if err := tmq.deleteKeys(errorItems); err != nil {
+        return nil, err
+    }
+
+    return result, nil
+}
+
+// deleteKeys - 删除错误的键（与原代码逻辑一致）
+func (tmq *TokenMapQuery) deleteKeys(keys [][]byte) error {
+    for _, v := range keys {
+        if err := tmq.db.Delete(v, nil); err != nil {
+            return err
+        }
+    }
+    return nil
+}
+
+// newTokenMapItem - 解析单个 TokenMap 项（与原代码逻辑完全一致）
+func (tmq *TokenMapQuery) newTokenMapItem(key, value []byte) (*TokenMapItem, error) {
+    if strings.Index(string(key), TokenMapPrefixKey) != 0 {
+        return nil, errors.New("key format is wrong")
+    }
+
+    item := &TokenMapItem{}
+    if err := json.Unmarshal(value, item); err != nil {
+        return nil, err
+    }
+
+    if !item.validate() {
+        return nil, errors.New("key format is wrong")
+    }
+
+    return item, nil
 }
 
 // GetTokenMapByRootToken - 根据根代币地址获取单个数据
@@ -102,55 +161,7 @@ func (tmq *TokenMapQuery) GetTokenMapByRootToken(rootChainType, rootToken string
     return tmq.newTokenMapItem([]byte(key), value)
 }
 
-// loadTokenMap - 加载所有 TokenMap 数据（与原代码逻辑一致）
-func (tmq *TokenMapQuery) loadTokenMap() ([]*TokenMapItem, error) {
-    errorItems := make([][]byte, 0)
-    result := make([]*TokenMapItem, 0)
-
-    iter := tmq.db.NewIterator(util.BytesPrefix([]byte(TokenMapPrefixKey)), nil)
-    defer iter.Release()
-
-    for iter.Next() {
-        if item, err := tmq.newTokenMapItem(iter.Key(), iter.Value()); err == nil {
-            result = append(result, item)
-        } else {
-            errorItems = append(errorItems, iter.Key())
-            fmt.Printf("Warning: Failed to parse item with key %s: %v\n", string(iter.Key()), err)
-        }
-    }
-
-    // 清理错误的数据项
-    if len(errorItems) > 0 {
-        fmt.Printf("Found %d invalid items, cleaning up...\n", len(errorItems))
-        for _, key := range errorItems {
-            if err := tmq.db.Delete(key, nil); err != nil {
-                fmt.Printf("Warning: Failed to delete invalid key %s: %v\n", string(key), err)
-            }
-        }
-    }
-
-    return result, nil
-}
-
-// newTokenMapItem - 解析单个 TokenMap 项
-func (tmq *TokenMapQuery) newTokenMapItem(key, value []byte) (*TokenMapItem, error) {
-    if !strings.HasPrefix(string(key), TokenMapPrefixKey) {
-        return nil, fmt.Errorf("key format is wrong: %s", string(key))
-    }
-
-    item := &TokenMapItem{}
-    if err := json.Unmarshal(value, item); err != nil {
-        return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
-    }
-
-    if !item.validate() {
-        return nil, fmt.Errorf("item validation failed")
-    }
-
-    return item, nil
-}
-
-// GetAllKeys - 获取所有 TokenMap 相关的 keys（调试用）
+// GetAllKeys - 获取所有 TokenMap 相关的 keys
 func (tmq *TokenMapQuery) GetAllKeys() ([]string, error) {
     var keys []string
 
@@ -171,16 +182,22 @@ func (tmq *TokenMapQuery) GetMetadata() (map[string]interface{}, error) {
     // 获取 hash
     if hashBytes, err := tmq.db.Get([]byte(TokenMapHashKey), nil); err == nil {
         metadata["hash"] = fmt.Sprintf("%x", hashBytes)
+    } else if err != leveldb.ErrNotFound {
+        return nil, fmt.Errorf("failed to get hash: %v", err)
     }
 
     // 获取最后事件ID
     if eventIDBytes, err := tmq.db.Get([]byte(TMapLastEventIDKey), nil); err == nil {
         metadata["lastEventID"] = string(eventIDBytes)
+    } else if err != leveldb.ErrNotFound {
+        return nil, fmt.Errorf("failed to get lastEventID: %v", err)
     }
 
     // 获取检查的结束块
     if endBlockBytes, err := tmq.db.Get([]byte(TMapCheckedEndBlockKey), nil); err == nil {
         metadata["checkedEndBlock"] = string(endBlockBytes)
+    } else if err != leveldb.ErrNotFound {
+        return nil, fmt.Errorf("failed to get checkedEndBlock: %v", err)
     }
 
     return metadata, nil
@@ -196,6 +213,10 @@ func main() {
         fmt.Println("  keys                         - 列出所有 keys") 
         fmt.Println("  metadata                     - 查询元数据")
         fmt.Println("  count                        - 统计数据量")
+        fmt.Println("")
+        fmt.Println("Example:")
+        fmt.Println("  go run query_tokenmap.go ./leveldb all")
+        fmt.Println("  go run query_tokenmap.go ./leveldb chain ethereum")
         os.Exit(1)
     }
 
@@ -221,11 +242,15 @@ func main() {
         }
 
         fmt.Printf("=== All TokenMap Data ===\n")
-        for chainType, items := range tokenMaps {
-            fmt.Printf("\nChain Type: %s (%d items)\n", chainType, len(items))
-            for _, item := range items {
-                fmt.Printf("  EventID: %d, RootToken: %s, ChildToken: %s\n",
-                    item.EventID, item.RootToken, item.ChildToken)
+        if len(tokenMaps) == 0 {
+            fmt.Println("No TokenMap data found")
+        } else {
+            for chainType, items := range tokenMaps {
+                fmt.Printf("\nChain Type: %s (%d items)\n", chainType, len(items))
+                for i, item := range items {
+                    fmt.Printf("  [%d] EventID: %d, RootToken: %s, ChildToken: %s\n",
+                        i+1, item.EventID, item.RootToken, item.ChildToken)
+                }
             }
         }
 
@@ -244,9 +269,9 @@ func main() {
         if len(items) == 0 {
             fmt.Println("No data found")
         } else {
-            for _, item := range items {
-                fmt.Printf("EventID: %d, RootToken: %s, ChildToken: %s\n",
-                    item.EventID, item.RootToken, item.ChildToken)
+            for i, item := range items {
+                fmt.Printf("[%d] EventID: %d, RootToken: %s, ChildToken: %s\n",
+                    i+1, item.EventID, item.RootToken, item.ChildToken)
             }
         }
 
@@ -277,8 +302,8 @@ func main() {
         }
 
         fmt.Printf("=== All TokenMap Keys ===\n")
-        for _, key := range keys {
-            fmt.Println(key)
+        for i, key := range keys {
+            fmt.Printf("[%d] %s\n", i+1, key)
         }
         fmt.Printf("Total: %d keys\n", len(keys))
 
@@ -289,8 +314,12 @@ func main() {
         }
 
         fmt.Printf("=== Metadata ===\n")
-        for key, value := range metadata {
-            fmt.Printf("%s: %v\n", key, value)
+        if len(metadata) == 0 {
+            fmt.Println("No metadata found")
+        } else {
+            for key, value := range metadata {
+                fmt.Printf("%s: %v\n", key, value)
+            }
         }
 
     case "count":
