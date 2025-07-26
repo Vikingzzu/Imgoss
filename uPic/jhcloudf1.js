@@ -2,7 +2,7 @@
 const storeToken = (token, apiKey) => {
   return new Promise((resolve, reject) => {
     const requestConfig = {
-      url: 'https://jy-token.vikingzzu.workers.dev/api/store-token',
+      url: 'https://workers.val.run/jy-token.vikingzzu/api/store-token',
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': apiKey
